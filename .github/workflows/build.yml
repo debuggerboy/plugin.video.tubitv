@@ -14,7 +14,7 @@ on:
     - cron: '0 2 * * 0'
   workflow_dispatch:
 
-# Add this permissions block
+# Grant necessary permissions
 permissions:
   contents: write
   pages: write
@@ -150,6 +150,7 @@ jobs:
       
       - name: Generate repository XML
         run: |
+          # Create the _site directory structure
           mkdir -p ./_site/addons
           
           ADDON_ID=$(grep -oP 'id="\K[^"]+' addon.xml | head -1)
@@ -165,6 +166,7 @@ jobs:
             exit 1
           fi
           
+          # Generate addons.xml
           cat > ./_site/addons.xml << EOF
           <?xml version="1.0" encoding="UTF-8"?>
           <addons>
@@ -195,28 +197,38 @@ jobs:
           </addons>
           EOF
           
+          # Generate MD5 checksum
           md5sum ./_site/addons.xml | cut -d' ' -f1 > ./_site/addons.xml.md5
           
-          # Create index.html to prevent 404 at root
+          # Create a proper index.html file
           cat > ./_site/index.html << 'EOF'
+          <!DOCTYPE html>
           <html>
             <head>
+              <meta charset="UTF-8">
               <meta http-equiv="refresh" content="0; url=addons.xml">
               <title>Tubi TV Kodi Repository</title>
             </head>
             <body>
+              <h1>Tubi TV Kodi Repository</h1>
               <p>Redirecting to <a href="addons.xml">addons.xml</a></p>
+              <p>If you are not redirected, <a href="addons.xml">click here</a>.</p>
             </body>
           </html>
           EOF
           
-          echo "Generated repository files in ./_site/"
+          # Verify the content
+          echo "=== Contents of ./_site ==="
           ls -la ./_site/
+          echo "=== Contents of ./_site/addons ==="
           ls -la ./_site/addons/
+          echo "=== addons.xml first 10 lines ==="
+          head -n 10 ./_site/addons.xml
       
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
+          name: github-pages
           path: ./_site
 
   deploy-pages:
