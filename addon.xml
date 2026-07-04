@@ -7,7 +7,8 @@
     <requires>
         <import addon="xbmc.python" version="3.0.0"/>
         <import addon="script.module.requests" version="2.25.0"/>
-        <import addon="script.module.inputstreamhelper" version="0.3.3"/>
+        <import addon="script.module.inputstreamhelper" version="0.5.0"/>
+        <import addon="inputstream.adaptive" version="2.6.24"/>
     </requires>
     
     <extension point="xbmc.python.pluginsource"
@@ -20,13 +21,48 @@
         <description lang="en_GB">Tubi TV is an ad-supported streaming service offering a large library of movies and TV shows completely free. This add-on brings the Tubi TV experience directly to Kodi.</description>
         <platform>all</platform>
         <license>GNU General Public License v3.0</license>
-        <forum>https://forum.kodi.tv/</forum>
+        <forum>https://forum.kodi.tv/showthread.php?tid=123456</forum>
         <website>https://tubitv.com</website>
         <source>https://github.com/debuggerboy/plugin.video.tubitv</source>
         <email>debuggerboy@gmail.com</email>
+        <news>Initial release with full Tubi TV integration, DRM support, and ad handling</news>
         <assets>
             <icon>icon.png</icon>
             <fanart>fanart.jpg</fanart>
+            <screenshot>resources/screenshots/screenshot01.jpg</screenshot>
+            <screenshot>resources/screenshots/screenshot02.jpg</screenshot>
         </assets>
+    </extension>
+    
+    <!-- Add-on Settings -->
+    <extension point="xbmc.addon.settings">
+        <setting id="drm_enabled" type="bool" label="Enable DRM" default="true"/>
+        <setting id="preferred_drm" type="enum" label="Preferred DRM" values="widevine|playready|clearkey" default="widevine"/>
+        <setting id="persistent_license" type="bool" label="Use Persistent Licenses" default="true"/>
+        <setting id="force_secure_decoder" type="bool" label="Force Secure Decoder" default="false"/>
+        
+        <setting id="video_quality" type="enum" label="Video Quality" values="adaptive|high|medium|low" default="adaptive"/>
+        <setting id="max_bandwidth" type="integer" label="Max Bandwidth (kbps, 0=auto)" default="0"/>
+        <setting id="min_bandwidth" type="integer" label="Min Bandwidth (kbps, 0=auto)" default="0"/>
+        
+        <setting id="audio_language" type="string" label="Preferred Audio Language" default="en"/>
+        <setting id="subtitle_language" type="string" label="Preferred Subtitle Language" default="en"/>
+        
+        <setting id="chunk_count" type="integer" label="Chunk Count" default="3"/>
+        <setting id="chunk_timeout" type="integer" label="Chunk Timeout (seconds)" default="20"/>
+        <setting id="buffer_size" type="integer" label="Buffer Size (MB)" default="4"/>
+        
+        <setting id="ad_enabled" type="bool" label="Enable Ads" default="true"/>
+        <setting id="ad_timeout" type="integer" label="Ad Timeout (seconds)" default="30"/>
+        
+        <setting id="cache_enabled" type="bool" label="Enable Caching" default="true"/>
+        <setting id="cache_ttl" type="integer" label="Cache TTL (minutes)" default="5"/>
+        
+        <setting id="region" type="string" label="Region Code (leave empty for auto)" default=""/>
+        <setting id="username" type="string" label="Username" default="" visible="false"/>
+        <setting id="auth_token" type="string" label="Auth Token" default="" visible="false"/>
+        <setting id="user_id" type="string" label="User ID" default="" visible="false"/>
+        
+        <setting id="debug_logging" type="bool" label="Enable Debug Logging" default="false"/>
     </extension>
 </addon>
