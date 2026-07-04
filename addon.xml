@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<addon id="plugin.video.tubitv"
+       name="Tubi TV"
+       version="1.0.0"
+       provider-name="debuggerboy">
+    
+    <requires>
+        <import addon="xbmc.python" version="3.0.0"/>
+        <import addon="script.module.requests" version="2.25.0"/>
+        <import addon="script.module.inputstreamhelper" version="0.3.3"/>
+    </requires>
+    
+    <extension point="xbmc.python.pluginsource"
+               library="main.py">
+        <provides>video</provides>
+    </extension>
+    
+    <extension point="xbmc.addon.metadata">
+        <summary lang="en_GB">Watch free movies and TV shows from Tubi TV</summary>
+        <description lang="en_GB">Tubi TV is an ad-supported streaming service offering a large library of movies and TV shows completely free. This add-on brings the Tubi TV experience directly to Kodi.</description>
+        <platform>all</platform>
+        <license>GNU General Public License v3.0</license>
+        <forum>https://forum.kodi.tv/</forum>
+        <website>https://tubitv.com</website>
+        <source>https://github.com/debuggerboy/plugin.video.tubitv</source>
+        <email>debuggerboy@gmail.com</email>
+        <assets>
+            <icon>icon.png</icon>
+            <fanart>fanart.jpg</fanart>
+        </assets>
+    </extension>
+</addon>
