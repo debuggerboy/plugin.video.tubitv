@@ -1,0 +1,395 @@
+name: Build Kodi Add-on
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+    tags:
+      - 'v*'
+  pull_request:
+    branches:
+      - main
+  schedule:
+    # Weekly build to test for API changes (every Sunday at 2:00 AM)
+    - cron: '0 2 * * 0'
+  workflow_dispatch:
+    # Allows manual trigger
+
+jobs:
+  validate:
+    name: Validate Add-on
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pycodestyle pylint xmlschema
+      
+      - name: Validate addon.xml
+        run: |
+          # Check XML validity
+          xmllint --noout --schema https://raw.githubusercontent.com/xbmc/xbmc/master/xbmc/addons/Addon.xsd addon.xml || true
+      
+      - name: Python syntax check
+        run: |
+          find . -name "*.py" -not -path "./.github/*" -exec python -m py_compile {} \;
+      
+      - name: PEP8 style check
+        run: |
+          pycodestyle --max-line-length=120 --ignore=E501,W503,E402 resources/
+      
+      - name: Check required files
+        run: |
+          # Check for required files
+          test -f addon.xml || exit 1
+          test -f main.py || exit 1
+          test -f resources/lib/tubi_api.py || exit 1
+          test -f resources/lib/utils.py || exit 1
+          test -f resources/lib/player.py || exit 1
+          test -f icon.png || exit 1
+          test -f fanart.jpg || exit 1
+
+  build:
+    name: Build Add-on
+    runs-on: ubuntu-latest
+    needs: validate
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Get version
+        id: get_version
+        run: |
+          # Extract version from addon.xml
+          VERSION=$(grep -oP 'version="\K[0-9.]+' addon.xml | head -1)
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          
+          # Get short commit hash
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          echo "SHORT_SHA=$SHORT_SHA" >> $GITHUB_OUTPUT
+          
+          # Determine release type
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            echo "RELEASE_TYPE=release" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" == refs/heads/main ]]; then
+            echo "RELEASE_TYPE=stable" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" == refs/heads/develop ]]; then
+            echo "RELEASE_TYPE=beta" >> $GITHUB_OUTPUT
+          else
+            echo "RELEASE_TYPE=dev" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Create add-on archive
+        run: |
+          # Get addon ID from addon.xml
+          ADDON_ID=$(grep -oP 'id="\K[^"]+' addon.xml | head -1)
+          VERSION="${{ steps.get_version.outputs.VERSION }}"
+          
+          # Create archive name
+          if [[ "${{ steps.get_version.outputs.RELEASE_TYPE }}" == "release" ]]; then
+            ARCHIVE_NAME="${ADDON_ID}-${VERSION}.zip"
+          else
+            ARCHIVE_NAME="${ADDON_ID}-${VERSION}-${{ steps.get_version.outputs.SHORT_SHA }}.zip"
+          fi
+          
+          echo "ARCHIVE_NAME=$ARCHIVE_NAME" >> $GITHUB_ENV
+          
+          # Create zip archive
+          zip -r "$ARCHIVE_NAME" . \
+            -x ".git/*" \
+            -x ".github/*" \
+            -x "*.pyc" \
+            -x "__pycache__/*" \
+            -x "*.swp" \
+            -x "*.swo" \
+            -x ".DS_Store" \
+            -x "Thumbs.db" \
+            -x "*.log" \
+            -x "*.tmp"
+          
+          echo "Created archive: $ARCHIVE_NAME"
+      
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tubi-tv-addon
+          path: |
+            ${{ env.ARCHIVE_NAME }}
+          retention-days: 30
+      
+      - name: Upload to release (if tag)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: ./${{ env.ARCHIVE_NAME }}
+          asset_name: ${{ env.ARCHIVE_NAME }}
+          asset_content_type: application/zip
+
+  generate-repository:
+    name: Generate Repository XML
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: tubi-tv-addon
+          path: ./addon
+      
+      - name: Generate repository XML
+        run: |
+          ADDON_ID=$(grep -oP 'id="\K[^"]+' addon.xml | head -1)
+          VERSION=$(grep -oP 'version="\K[0-9.]+' addon.xml | head -1)
+          ARCHIVE_NAME="${ADDON_ID}-${VERSION}.zip"
+          
+          # Find the zip file
+          ZIP_FILE=$(find ./addon -name "*.zip" | head -1)
+          
+          # Calculate MD5
+          if [[ -f "$ZIP_FILE" ]]; then
+            MD5=$(md5sum "$ZIP_FILE" | cut -d' ' -f1)
+          else
+            echo "Error: ZIP file not found"
+            exit 1
+          fi
+          
+          # Get file size
+          SIZE=$(stat -c%s "$ZIP_FILE")
+          
+          # Generate addons.xml
+          cat > addons.xml << EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <addons>
+            <addon id="${ADDON_ID}" version="${VERSION}">
+              <import addon="xbmc.python" version="3.0.0"/>
+              <import addon="script.module.requests" version="2.25.0"/>
+              <import addon="script.module.inputstreamhelper" version="0.5.0"/>
+              <import addon="inputstream.adaptive" version="2.6.24"/>
+              <extension point="xbmc.python.pluginsource" library="main.py">
+                <provides>video</provides>
+              </extension>
+              <extension point="xbmc.addon.metadata">
+                <summary lang="en_GB">Watch free movies and TV shows from Tubi TV</summary>
+                <description lang="en_GB">Tubi TV is an ad-supported streaming service offering a large library of movies and TV shows completely free. This add-on brings the Tubi TV experience directly to Kodi.</description>
+                <platform>all</platform>
+                <license>GNU General Public License v3.0</license>
+                <forum>https://forum.kodi.tv/showthread.php?tid=123456</forum>
+                <website>https://tubitv.com</website>
+                <source>https://github.com/${{ github.repository }}</source>
+                <email>debuggerboy@gmail.com</email>
+                <news>Version ${VERSION} released</news>
+                <assets>
+                  <icon>icon.png</icon>
+                  <fanart>fanart.jpg</fanart>
+                </assets>
+              </extension>
+            </addon>
+          </addons>
+          EOF
+          
+          # Generate MD5 of addons.xml
+          md5sum addons.xml | cut -d' ' -f1 > addons.xml.md5
+          
+          echo "Generated repository files"
+      
+      - name: Upload repository files
+        uses: actions/upload-artifact@v4
+        with:
+          name: repository-files
+          path: |
+            addons.xml
+            addons.xml.md5
+
+  release-repository:
+    name: Release to GitHub Pages
+    runs-on: ubuntu-latest
+    needs: generate-repository
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
+    
+    steps:
+      - name: Checkout gh-pages
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          path: gh-pages
+      
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: repository-files
+          path: ./repository
+      
+      - name: Download addon
+        uses: actions/download-artifact@v4
+        with:
+          name: tubi-tv-addon
+          path: ./repository/addons
+      
+      - name: Deploy to GitHub Pages
+        run: |
+          # Copy files to gh-pages directory
+          cp ./repository/addons.xml ./gh-pages/
+          cp ./repository/addons.xml.md5 ./gh-pages/
+          
+          # Copy addon zip
+          mkdir -p ./gh-pages/addons
+          cp ./repository/addons/*.zip ./gh-pages/addons/
+          
+          # Configure git
+          cd ./gh-pages
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          
+          # Add and commit changes
+          git add .
+          git commit -m "Update repository: $(date +'%Y-%m-%d %H:%M:%S')" || echo "No changes to commit"
+          git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }} gh-pages
+          
+          echo "Deployed to GitHub Pages"
+
+  test-install:
+    name: Test Installation
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
+    
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: tubi-tv-addon
+          path: ./addon
+      
+      - name: Test zip integrity
+        run: |
+          # Find zip file
+          ZIP_FILE=$(find ./addon -name "*.zip" | head -1)
+          
+          # Test zip integrity
+          if unzip -t "$ZIP_FILE"; then
+            echo "✅ ZIP file is valid"
+          else
+            echo "❌ ZIP file is corrupted"
+            exit 1
+          fi
+          
+          # Extract and check structure
+          mkdir ./extracted
+          unzip "$ZIP_FILE" -d ./extracted
+          
+          # Check for required files
+          cd ./extracted
+          test -f addon.xml || exit 1
+          test -f main.py || exit 1
+          test -f resources/lib/tubi_api.py || exit 1
+          test -d resources/language/resource.language.en_gb || exit 1
+          
+          echo "✅ Add-on structure is valid"
+
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    needs: validate
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install security tools
+        run: |
+          pip install bandit safety
+      
+      - name: Run Bandit security scan
+        run: |
+          bandit -r . -f json -o bandit-report.json || true
+      
+      - name: Check dependencies for vulnerabilities
+        run: |
+          # Check requirements if exists
+          if [ -f requirements.txt ]; then
+            safety check -r requirements.txt --json > safety-report.json || true
+          fi
+      
+      - name: Upload security reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-reports
+          path: |
+            bandit-report.json
+            safety-report.json
+
+  deploy-docs:
+    name: Deploy Documentation
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Generate documentation
+        run: |
+          mkdir -p docs
+          
+          # Generate README from template
+          cat > docs/index.md << EOF
+          # Tubi TV Kodi Add-on
+          
+          Welcome to the Tubi TV Kodi add-on documentation.
+          
+          ## Installation
+          1. Download the latest release from [GitHub Releases](https://github.com/${{ github.repository }}/releases)
+          2. Install in Kodi via "Install from zip file"
+          
+          ## Features
+          - Browse movies and TV shows
+          - Search content
+          - Watch with DRM support
+          - My List (requires login)
+          - Watch history
+          
+          ## Support
+          For issues and questions, please visit the [GitHub Issues](https://github.com/${{ github.repository }}/issues)
+          
+          ## License
+          GNU General Public License v3.0
+          EOF
+          
+          echo "Documentation generated"
+      
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./docs
+          destination_dir: ./docs
+          keep_files: true

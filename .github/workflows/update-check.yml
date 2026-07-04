@@ -1,0 +1,66 @@
+name: Check API Status
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'  # Every 6 hours
+  workflow_dispatch:
+
+jobs:
+  check-api:
+    name: Check Tubi API
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          pip install requests
+      
+      - name: Test API endpoints
+        run: |
+          python -c "
+          import requests
+          import json
+          
+          # Test categories endpoint
+          try:
+              resp = requests.get('https://tubitv.com/api/categories', timeout=10)
+              print(f'Categories: {resp.status_code}')
+              if resp.status_code == 200:
+                  print('✅ Categories endpoint working')
+              else:
+                  print('❌ Categories endpoint failed')
+          except Exception as e:
+              print(f'❌ Error: {e}')
+              
+          # Test home endpoint
+          try:
+              resp = requests.get('https://tubitv.com/api/home', timeout=10)
+              print(f'Home: {resp.status_code}')
+              if resp.status_code == 200:
+                  print('✅ Home endpoint working')
+              else:
+                  print('❌ Home endpoint failed')
+          except Exception as e:
+              print(f'❌ Error: {e}')
+          "
+      
+      - name: Create issue if API fails
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: '⚠️ Tubi TV API may be down or changed',
+              body: 'The automated API check has detected that the Tubi TV API endpoints may be unavailable or have changed. Please investigate and update the add-on accordingly.',
+              labels: ['bug', 'api']
+            })

@@ -1,0 +1,56 @@
+name: Create Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version number (e.g., 1.0.1)'
+        required: true
+      description:
+        description: 'Release description'
+        required: false
+
+jobs:
+  create-release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Update version in addon.xml
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          sed -i "s/version=\"[0-9.]*\"/version=\"$VERSION\"/" addon.xml
+          
+          # Commit and push changes
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add addon.xml
+          git commit -m "Bump version to $VERSION"
+          git push
+      
+      - name: Create tag
+        run: |
+          git tag -a "v${{ github.event.inputs.version }}" -m "Release v${{ github.event.inputs.version }}"
+          git push origin "v${{ github.event.inputs.version }}"
+      
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ github.event.inputs.version }}
+          name: Release v${{ github.event.inputs.version }}
+          body: |
+            ## Tubi TV Add-on v${{ github.event.inputs.version }}
+            
+            ${{ github.event.inputs.description }}
+            
+            ## Installation
+            1. Download the add-on ZIP file
+            2. Install in Kodi via "Install from zip file"
+            
+            ## Changes in this release
+            - Add your changelog here
+          draft: false
+          prerelease: false
