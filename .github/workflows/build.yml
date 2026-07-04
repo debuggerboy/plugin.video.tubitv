@@ -161,12 +161,13 @@ jobs:
           if [[ -f "$ZIP_FILE" ]]; then
             cp "$ZIP_FILE" ./_site/addons/
             MD5=$(md5sum "$ZIP_FILE" | cut -d' ' -f1)
+            SIZE=$(stat -c%s "$ZIP_FILE")
           else
             echo "Error: ZIP file not found"
             exit 1
           fi
           
-          # Generate addons.xml
+          # Generate addons.xml with size and checksum
           cat > ./_site/addons.xml << EOF
           <?xml version="1.0" encoding="UTF-8"?>
           <addons>
@@ -192,6 +193,8 @@ jobs:
                   <icon>icon.png</icon>
                   <fanart>fanart.jpg</fanart>
                 </assets>
+                <size>${SIZE}</size>
+                <checksum>${MD5}</checksum>
               </extension>
             </addon>
           </addons>
@@ -222,8 +225,8 @@ jobs:
           ls -la ./_site/
           echo "=== Contents of ./_site/addons ==="
           ls -la ./_site/addons/
-          echo "=== addons.xml first 10 lines ==="
-          head -n 10 ./_site/addons.xml
+          echo "=== addons.xml first 15 lines ==="
+          head -n 15 ./_site/addons.xml
       
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
