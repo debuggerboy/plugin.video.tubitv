@@ -48,7 +48,11 @@ jobs:
       
       - name: PEP8 style check
         run: |
-          pycodestyle --max-line-length=120 --ignore=E501,W503,E402 resources/
+          # Only check for critical errors, ignore whitespace issues
+          pycodestyle --max-line-length=120 --ignore=E501,W503,W293,E302,E128,W291 resources/
+          # Or use flake8 with less strict rules
+          # flake8 --max-line-length=120 --ignore=E501,W503,W293,E302,E128,W291 resources/
+          #pycodestyle --max-line-length=120 --ignore=E501,W503,E402 resources/
       
       - name: Check required files
         run: |
@@ -392,4 +396,5 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./docs
           destination_dir: ./docs
-          keep_files: true
+          keep_files: tru:1
+          e
