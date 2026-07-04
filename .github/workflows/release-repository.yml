@@ -20,11 +20,12 @@ release-repository:
     - name: Deploy to GitHub Pages
       uses: peaceiris/actions-gh-pages@v4
       with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
+        # Use PAT instead of GITHUB_TOKEN
+        personal_token: ${{ secrets.PAT_TOKEN }}
         publish_dir: ./repository
         publish_branch: gh-pages
         keep_files: false
         force_orphan: true
         commit_message: "Release from ${{ github.sha }}"
-        user_name: "github-actions[bot]"
-        user_email: "github-actions[bot]@users.noreply.github.com"
+        user_name: "debuggerboy"
+        user_email: "debuggerboy@gmail.com"
