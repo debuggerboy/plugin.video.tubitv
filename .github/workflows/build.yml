@@ -159,6 +159,7 @@ jobs:
           ZIP_FILE=$(find ./addon -name "*.zip" | head -1)
           
           if [[ -f "$ZIP_FILE" ]]; then
+            # Copy the ZIP file to the site directory
             cp "$ZIP_FILE" ./_site/addons/
             MD5=$(md5sum "$ZIP_FILE" | cut -d' ' -f1)
             SIZE=$(stat -c%s "$ZIP_FILE")
@@ -167,11 +168,12 @@ jobs:
             exit 1
           fi
           
-          # Generate addons.xml with size and checksum
+          # Generate addons.xml with URL, size and checksum
           cat > ./_site/addons.xml << EOF
           <?xml version="1.0" encoding="UTF-8"?>
           <addons>
             <addon id="${ADDON_ID}" version="${VERSION}">
+              <url>https://debuggerboy.github.io/plugin.video.tubitv/addons/${ARCHIVE_NAME}</url>
               <import addon="xbmc.python" version="3.0.0"/>
               <import addon="script.module.requests" version="2.25.0"/>
               <import addon="script.module.inputstreamhelper" version="0.5.0"/>
@@ -200,7 +202,7 @@ jobs:
           </addons>
           EOF
           
-          # Generate MD5 checksum
+          # Generate MD5 checksum for addons.xml
           md5sum ./_site/addons.xml | cut -d' ' -f1 > ./_site/addons.xml.md5
           
           # Create a proper index.html file
@@ -225,8 +227,8 @@ jobs:
           ls -la ./_site/
           echo "=== Contents of ./_site/addons ==="
           ls -la ./_site/addons/
-          echo "=== addons.xml first 15 lines ==="
-          head -n 15 ./_site/addons.xml
+          echo "=== addons.xml content ==="
+          cat ./_site/addons.xml
       
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
