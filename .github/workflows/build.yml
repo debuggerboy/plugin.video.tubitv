@@ -173,6 +173,11 @@ jobs:
 
           # After copying the ZIP file
           echo "=== Verifying ZIP file was copied ==="
+          echo "$ADDON_ID"
+          echo "$VERSION"
+          echo "$ARCHIVE_NAME"
+          echo "$ZIP_FILE"
+          echo "=== Verifying ZIP file was copied ==="
           ls -la ./_site/addons/
           file ./_site/addons/plugin.video.tubitv-*.zip
           
