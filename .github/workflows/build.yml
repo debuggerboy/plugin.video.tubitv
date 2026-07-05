@@ -158,8 +158,10 @@ jobs:
           
           ADDON_ID=$(grep -oP 'id="\K[^"]+' addon.xml | head -1)
           VERSION=$(grep -oP 'version="\K[0-9.]+' addon.xml | head -1)
-          ARCHIVE_NAME="${ADDON_ID}-${VERSION}.zip"
+          
+          # Find the actual ZIP file (with the commit hash for non-releases)
           ZIP_FILE=$(find ./addon -name "*.zip" | head -1)
+          ZIP_FILENAME=$(basename "$ZIP_FILE")
           
           if [[ -f "$ZIP_FILE" ]]; then
             # Copy the ZIP file to the site directory
@@ -173,20 +175,20 @@ jobs:
 
           # After copying the ZIP file
           echo "=== Verifying ZIP file was copied ==="
-          echo "$ADDON_ID"
-          echo "$VERSION"
-          echo "$ARCHIVE_NAME"
-          echo "$ZIP_FILE"
+          echo "ADDON_ID: $ADDON_ID"
+          echo "VERSION: $VERSION"
+          echo "ZIP_FILENAME: $ZIP_FILENAME"
+          echo "ZIP_FILE: $ZIP_FILE"
           echo "=== Verifying ZIP file was copied ==="
           ls -la ./_site/addons/
-          file ./_site/addons/plugin.video.tubitv-*.zip
+          file ./_site/addons/*.zip
           
-          # Generate addons.xml with URL, size and checksum
+          # Generate addons.xml with the actual filename (not the hardcoded one)
           cat > ./_site/addons.xml << EOF
           <?xml version="1.0" encoding="UTF-8"?>
           <addons>
             <addon id="${ADDON_ID}" version="${VERSION}">
-              <url>https://debuggerboy.github.io/plugin.video.tubitv/addons/${ARCHIVE_NAME}</url>
+              <url>https://debuggerboy.github.io/plugin.video.tubitv/addons/${ZIP_FILENAME}</url>
               <import addon="xbmc.python" version="3.0.0"/>
               <import addon="script.module.requests" version="2.25.0"/>
               <import addon="script.module.inputstreamhelper" version="0.5.0"/>
