@@ -152,6 +152,9 @@ jobs:
         run: |
           # Create the _site directory structure
           mkdir -p ./_site/addons
+
+          # Create .nojekyll file to prevent Jekyll processing
+          touch ./_site/.nojekyll
           
           ADDON_ID=$(grep -oP 'id="\K[^"]+' addon.xml | head -1)
           VERSION=$(grep -oP 'version="\K[0-9.]+' addon.xml | head -1)
@@ -167,6 +170,11 @@ jobs:
             echo "Error: ZIP file not found"
             exit 1
           fi
+
+          # After copying the ZIP file
+          echo "=== Verifying ZIP file was copied ==="
+          ls -la ./_site/addons/
+          file ./_site/addons/plugin.video.tubitv-*.zip
           
           # Generate addons.xml with URL, size and checksum
           cat > ./_site/addons.xml << EOF
